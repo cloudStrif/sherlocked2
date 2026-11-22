@@ -1,7 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "angular",
-  "buildCommand": "ng build",
   "outputDirectory": "dist/sherlocked/browser",
   "cleanUrls": true,
   "rewrites": [
