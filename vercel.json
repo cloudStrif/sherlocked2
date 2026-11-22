@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "dist/sherlocked/browser",
+  "buildCommand": "echo skip",
+  "installCommand": "echo skip",
   "cleanUrls": true,
   "rewrites": [
     {
