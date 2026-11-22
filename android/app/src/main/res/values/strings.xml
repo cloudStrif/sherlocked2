@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sherlocked</string>
+    <string name="title_activity_main">Sherlocked</string>
+    <string name="package_name">com.sherlocked.mindpalace</string>
+    <string name="custom_url_scheme">com.sherlocked.mindpalace</string>
+</resources>

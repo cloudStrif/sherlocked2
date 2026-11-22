@@ -1,0 +1,262 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+  <div class="relative w-full max-w-lg bg-gray-950/95 border border-cyan-500/40 rounded-3xl shadow-[0_0_60px_rgba(6,182,212,0.25)] p-5 sm:p-6 text-left overflow-hidden flex flex-col max-h-[90vh]">
+    
+    <!-- Décoration cyber-détective -->
+    <div class="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+    <span class="text-[9px] font-mono text-cyan-400/50 uppercase tracking-widest mb-1">Mind Palace // Protocoles IA &amp; Audio</span>
+
+    <!-- Header Modal -->
+    <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+      <div class="flex items-center gap-3">
+        <span class="w-8 h-8 rounded-xl bg-cyan-950 border border-cyan-400/40 text-cyan-300 flex items-center justify-center font-serif font-bold text-lg shadow-sm">
+          221B
+        </span>
+        <div>
+          <h3 class="text-base font-bold text-white tracking-wide font-serif">Configuration de l'IA &amp; Voix</h3>
+          <p class="text-[11px] text-gray-400">Palais Mental &bull; Analyse Vision &bull; Clone Vocal Sherlock</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        (click)="close.emit()"
+        class="text-gray-400 hover:text-white p-1 rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Sélecteur d'Onglets -->
+    <div class="flex items-center gap-2 mt-4 p-1 bg-gray-900 rounded-2xl border border-gray-800 text-xs font-mono">
+      <button
+        type="button"
+        (click)="activeTab.set('gemini')"
+        class="flex-1 py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 font-bold"
+        [ngClass]="activeTab() === 'gemini'
+          ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/40 shadow-sm'
+          : 'text-gray-400 hover:text-white'"
+      >
+        <span>👁️ Vision (Google AI)</span>
+        @if (geminiService.apiKey()) {
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+        }
+      </button>
+
+      <button
+        type="button"
+        (click)="activeTab.set('elevenlabs')"
+        class="flex-1 py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 font-bold"
+        [ngClass]="activeTab() === 'elevenlabs'
+          ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/40 shadow-sm'
+          : 'text-gray-400 hover:text-white'"
+      >
+        <span>🎙️ Voix Sherlock VF</span>
+        @if (speechService.elevenLabsApiKey()) {
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+        }
+      </button>
+    </div>
+
+    <!-- Contenu des Onglets (Scrollable) -->
+    <div class="mt-4 flex-1 overflow-y-auto space-y-4 pr-1">
+
+      <!-- =========================================================================
+           ONGLET 1 : GOOGLE GEMINI VISION
+           ========================================================================= -->
+      @if (activeTab() === 'gemini') {
+        <div class="space-y-4 animate-in fade-in duration-150">
+          <div class="p-3 bg-cyan-950/30 border border-cyan-500/30 rounded-2xl text-xs text-cyan-200 space-y-2">
+            <div class="flex items-start gap-2">
+              <span class="text-cyan-400 font-bold">&bull;</span>
+              <span>Google AI Studio offre un accès <strong>100% gratuit</strong> sans carte bancaire requise.</span>
+            </div>
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-300 font-mono text-[11px] font-bold transition-all"
+            >
+              <span>Obtenir ma clé Google gratuite sur aistudio.google.com &rarr;</span>
+            </a>
+          </div>
+
+          <div>
+            <label class="block text-xs font-mono font-medium text-gray-300 mb-1.5 uppercase tracking-wider">
+              Clé d'API Google (AIzaSy...)
+            </label>
+            <input
+              type="password"
+              [(ngModel)]="inputGeminiKey"
+              placeholder="Collez votre clé Google Gemini..."
+              class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 rounded-xl text-white text-xs font-mono placeholder-gray-500 transition-all outline-none"
+            />
+          </div>
+
+          <div class="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              (click)="testGeminiKey()"
+              [disabled]="isTestingGeminiKey() || !inputGeminiKey"
+              class="px-4 py-2 rounded-xl bg-cyan-950/70 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition-all hover:scale-102 disabled:opacity-50"
+            >
+              @if (isTestingGeminiKey()) {
+                <span class="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></span>
+                <span>Test en cours...</span>
+              } @else {
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Tester ma clé Google</span>
+              }
+            </button>
+
+            @if (inputGeminiKey) {
+              <button
+                type="button"
+                (click)="removeGeminiKey()"
+                class="text-rose-400 hover:text-rose-300 text-[11px] font-mono cursor-pointer ml-auto"
+              >
+                Effacer cette clé
+              </button>
+            }
+          </div>
+
+          <!-- Résultat du test Gemini -->
+          @if (geminiTestResult(); as res) {
+            <div
+              class="p-3 rounded-xl text-xs font-mono border"
+              [ngClass]="res.success ? 'bg-teal-950/60 border-teal-500/50 text-teal-200' : 'bg-rose-950/60 border-rose-500/50 text-rose-200'"
+            >
+              <div class="flex items-start gap-2">
+                <span class="shrink-0">{{ res.success ? '✅' : '❌' }}</span>
+                <span>{{ res.message }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- =========================================================================
+           ONGLET 2 : ELEVENLABS (CLONE VOCAL GILLES MORVAN)
+           ========================================================================= -->
+      @if (activeTab() === 'elevenlabs') {
+        <div class="space-y-4 animate-in fade-in duration-150">
+          
+          <div class="p-3.5 bg-amber-950/20 border border-amber-500/30 rounded-2xl text-xs text-amber-200/90 space-y-2">
+            <div class="flex items-center gap-2 text-amber-300 font-serif font-bold">
+              <span>🎭 Clone vocal de Gilles Morvan (VF de Benedict Cumberbatch)</span>
+            </div>
+            <p class="text-[11px] text-gray-300 leading-relaxed">
+              Pour que Sherlock parle avec <strong>le grain de voix exact de la série</strong>, créez un compte gratuit sur <strong>ElevenLabs</strong> et clonez un extrait audio de 1 minute de Sherlock en VF.
+            </p>
+            <a
+              href="https://elevenlabs.io"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 font-mono text-[11px] font-bold transition-all"
+            >
+              <span>Accéder à elevenlabs.io (Forfait gratuit disponible) &rarr;</span>
+            </a>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-mono font-medium text-gray-300 mb-1 uppercase tracking-wider">
+                1. Clé API ElevenLabs (xi-api-key)
+              </label>
+              <input
+                type="password"
+                [(ngModel)]="inputElevenKey"
+                placeholder="Votre clé API ElevenLabs..."
+                class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-xl text-white text-xs font-mono placeholder-gray-500 transition-all outline-none"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-mono font-medium text-gray-300 mb-1 uppercase tracking-wider">
+                2. Voice ID de Sherlock (Optionnel)
+              </label>
+              <input
+                type="text"
+                [(ngModel)]="inputVoiceId"
+                placeholder="ex: onwK4e9ZLuTAKqWW03F9 ou votre Voice ID cloné"
+                class="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-xl text-white text-xs font-mono placeholder-gray-500 transition-all outline-none"
+              />
+              <p class="text-[10px] text-gray-500 mt-1">
+                Laissez vide pour utiliser une voix masculine grave par défaut de la bibliothèque ElevenLabs.
+              </p>
+            </div>
+
+            <!-- Bouton pour tester la voix immédiatement -->
+            <div class="pt-2 flex items-center justify-between">
+              <button
+                type="button"
+                (click)="testSherlockVoice()"
+                [disabled]="speechService.isLoadingAudio() || speechService.isSpeaking()"
+                class="px-4 py-2 rounded-xl bg-amber-950/60 hover:bg-amber-900 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition-all hover:scale-102 disabled:opacity-50"
+              >
+                @if (speechService.isLoadingAudio()) {
+                  <span class="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                  <span>Génération audio...</span>
+                } @else if (speechService.isSpeaking()) {
+                  <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                  <span>Lecture en cours...</span>
+                } @else {
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Tester la voix Sherlock ("Sociopathe...")</span>
+                }
+              </button>
+
+              @if (inputElevenKey) {
+                <button
+                  type="button"
+                  (click)="removeElevenKey()"
+                  class="text-rose-400 hover:text-rose-300 text-[11px] font-mono cursor-pointer"
+                >
+                  Effacer
+                </button>
+              }
+            </div>
+
+            @if (speechService.audioError()) {
+              <p class="text-[11px] text-rose-400 font-mono mt-1">
+                &cross; {{ speechService.audioError() }}
+              </p>
+            }
+          </div>
+
+        </div>
+      }
+
+    </div>
+
+    <!-- Footer Modal -->
+    <div class="mt-6 pt-4 border-t border-gray-800 flex items-center justify-between gap-3">
+      <span class="text-[11px] text-gray-500 font-mono hidden sm:inline">
+        Sauvegarde locale sécurisée
+      </span>
+
+      <div class="flex items-center gap-2 ml-auto">
+        <button
+          type="button"
+          (click)="close.emit()"
+          class="px-4 py-2 text-xs font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-xl transition-colors cursor-pointer"
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          (click)="saveConfig()"
+          class="px-5 py-2 text-xs font-bold text-gray-950 bg-gradient-to-r from-cyan-400 to-teal-300 hover:from-cyan-300 hover:to-teal-200 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all font-mono cursor-pointer"
+        >
+          Enregistrer les réglages
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
