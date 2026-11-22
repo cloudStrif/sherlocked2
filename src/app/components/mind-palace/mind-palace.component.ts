@@ -21,7 +21,7 @@ export class MindPalaceComponent implements OnInit {
   public readonly visibleCluesCount: WritableSignal<number> = signal(1);
   public readonly selectedClue: WritableSignal<SherlockClue | null> = signal(null);
   public readonly isCopied: WritableSignal<boolean> = signal(false);
-  public readonly activeTab: WritableSignal<'mindpalace' | 'monologue'> = signal('mindpalace');
+  public readonly activeTab: WritableSignal<'identification' | 'mindpalace' | 'monologue'> = signal('identification');
 
   ngOnInit(): void {
     this.speechService.playAudioEffect('verdict');

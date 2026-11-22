@@ -5,17 +5,17 @@
     <div class="max-w-5xl mx-auto flex items-center justify-between">
       
       <!-- Logo & Titre BBC Sherlock -->
-      <div class="flex items-center gap-3 cursor-pointer" (click)="resetInvestigation()">
-        <div class="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-900 to-gray-900 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)]">
-          <span class="font-serif font-black text-cyan-300 text-lg">221</span>
+      <div class="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" (click)="resetInvestigation()">
+        <div class="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-cyan-900 to-gray-900 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)] shrink-0">
+          <span class="font-serif font-black text-cyan-300 text-base sm:text-lg">221</span>
           <span class="absolute -bottom-1 -right-1 text-[8px] font-mono font-bold text-cyan-400 bg-black px-1 rounded border border-cyan-500/40">B</span>
         </div>
-        <div>
-          <h1 class="text-lg font-serif font-extrabold tracking-wider text-white uppercase flex items-center gap-1.5">
+        <div class="min-w-0">
+          <h1 class="text-base sm:text-lg font-serif font-extrabold tracking-wider text-white uppercase flex items-center gap-1.5">
             <span>SHERLOCKED</span>
             <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">AI</span>
           </h1>
-          <p class="text-[10px] text-gray-400 font-mono tracking-widest uppercase">The Science of Deduction // Mind Palace</p>
+          <p class="text-[9px] sm:text-[10px] text-gray-400 font-mono tracking-widest uppercase truncate">The Science of Deduction</p>
         </div>
       </div>
 
@@ -24,7 +24,7 @@
         <button
           type="button"
           (click)="showApiModal.set(true)"
-          class="px-3 py-1.5 rounded-xl border transition-all text-xs font-mono flex items-center gap-2"
+          class="px-2 sm:px-3 py-1.5 rounded-xl border transition-all text-[10px] sm:text-xs font-mono flex items-center gap-1.5 sm:gap-2"
           [ngClass]="geminiService.apiKey()
             ? 'bg-cyan-950/60 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
             : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'"
@@ -33,7 +33,10 @@
             class="w-2 h-2 rounded-full"
             [ngClass]="geminiService.apiKey() ? 'bg-cyan-400 animate-ping' : 'bg-amber-400'"
           ></span>
-          <span>{{ geminiService.apiKey() ? 'Google Gemini Actif' : 'Mode Démo (Clé API)' }}</span>
+          <span>
+            <span class="hidden sm:inline">{{ geminiService.apiKey() ? 'Google Gemini Actif' : 'Mode Démo (Clé API)' }}</span>
+            <span class="sm:hidden">{{ geminiService.apiKey() ? 'Gemini ✓' : 'Clé API' }}</span>
+          </span>
         </button>
       </div>
 
@@ -124,17 +127,18 @@
         
         <!-- Titre & Introduction Sherlock -->
         <div class="space-y-3">
-          <span class="inline-block px-3 py-1 rounded-full text-xs font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 tracking-widest uppercase shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-            Téléphone &bull; Appareil Photo &bull; Déduction IA
+          <span class="inline-block px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 tracking-widest uppercase shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+            <span class="hidden sm:inline">Scan Photo &bull; Identification Précise &bull; Déduction IA</span>
+            <span class="sm:hidden">Scan Photo &bull; Déduction IA</span>
           </span>
-          <h2 class="text-3xl md:text-5xl font-serif font-black text-white tracking-tight">
+          <h2 class="text-2xl sm:text-3xl md:text-5xl font-serif font-black text-white tracking-tight">
             Vous voyez. <br>
             <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-cyan-200">
-              Sherlock déduit.
+              Sherlock sait et déduit.
             </span>
           </h2>
           <p class="text-sm md:text-base text-gray-400 max-w-lg mx-auto font-light leading-relaxed">
-            Prenez une photo d'un objet, d'un vêtement ou d'une pièce. L'IA analyse les détails invisibles et vous donne <strong class="text-cyan-300 font-semibold">le texte exact à prononcer</strong> pour faire croire à une déduction de génie.
+            Scannez n'importe quelle photo : une course, une célébrité, un lieu, un objet. Sherlock identifie avec une précision chirurgicale l'événement, la date, le contexte et les détails que l'œil humain ne voit pas.
           </p>
         </div>
 
@@ -163,11 +167,11 @@
           </p>
 
           <!-- Boutons de Déclenchement -->
-          <div class="mt-5 flex flex-wrap items-center justify-center gap-3 relative z-10">
+          <div class="mt-5 flex flex-col xs:flex-row flex-wrap items-center justify-center gap-2 sm:gap-3 relative z-10 w-full px-2 sm:px-0">
             <button
               type="button"
               (click)="captureWithCamera()"
-              class="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-gray-950 font-mono text-xs font-bold flex items-center gap-2 shadow-[0_0_25px_rgba(6,182,212,0.5)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              class="w-full xs:w-auto px-5 sm:px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-gray-950 font-mono text-[11px] sm:text-xs font-bold flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(6,182,212,0.5)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -179,7 +183,7 @@
             <button
               type="button"
               (click)="selectFromGallery()"
-              class="px-5 py-3 rounded-2xl bg-gray-900/90 hover:bg-gray-800 text-gray-200 hover:text-white border border-gray-700 hover:border-cyan-400 font-mono text-xs font-semibold flex items-center gap-2 hover:scale-102 active:scale-95 transition-all cursor-pointer"
+              class="w-full xs:w-auto px-4 sm:px-5 py-3 rounded-2xl bg-gray-900/90 hover:bg-gray-800 text-gray-200 hover:text-white border border-gray-700 hover:border-cyan-400 font-mono text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-2 hover:scale-102 active:scale-95 transition-all cursor-pointer"
             >
               <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />

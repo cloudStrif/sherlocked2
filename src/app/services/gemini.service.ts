@@ -1,5 +1,5 @@
 import { Injectable, signal, WritableSignal } from '@angular/core';
-import { SherlockAnalysis, SherlockClue } from '../models/sherlock.model';
+import { SherlockAnalysis, SherlockClue, ImageIdentification } from '../models/sherlock.model';
 
 @Injectable({
   providedIn: 'root'
@@ -186,45 +186,125 @@ export class GeminiService {
     cleanBase64 = cleanBase64.replace(/\s/g, '');
 
     const prompt = `
-Tu es Sherlock Holmes (incarnation moderne de la série BBC avec Benedict Cumberbatch).
-Tu as sous les yeux UNE PHOTO RÉELLE envoyée par l'utilisateur. Ton Palais Mental s'active instantanément.
+Tu es Sherlock Holmes (incarnation moderne BBC avec Benedict Cumberbatch).
+Tu disposes d'une mémoire photographique universelle et encyclopédique.
 
-RÈGLE D'OR : TON ANALYSE DOIT ÊTRE 100% ADAPTÉE ET FOCALISÉE SUR CE QUI EST CONCRÈTEMENT PRÉSENT SUR CETTE PHOTO.
-Identifie l'objet précis, la marque, les couleurs réelles, la texture, l'environnement, les défauts visibles. Ne sois JAMAIS générique.
+══════════════════════════════════════════════════════════════════════
+EXIGENCE FONDAMENTALE : IDENTIFIER AVEC PRÉCISION CE QUE MONTRE L'IMAGE
+══════════════════════════════════════════════════════════════════════
+L'utilisateur te montre une photo et veut SAVOIR EXACTEMENT CE QUE C'EST.
+Sherlock ne fait pas de suppositions vagues comme un simple humain. Il sait identifier ce que l'œil humain ordinaire ne voit pas ou ne connaît pas :
 
-Fournis STRICTEMENT un JSON valide sans texte avant ni après, avec ce format :
+1. SI C'EST UNE COURSE SPORTIVE / UN MARATHONIEN :
+   - Indique la COURSE EXACTE (ex: "Marathon de Paris 2024", "Marathon de Berlin 2022", "Jeux Olympiques de Paris 2024").
+   - Identifie la DATE EXACTE ou l'année grâce aux repères visuels (couleur et charte graphique du dossard, sponsors sur les bannières, modèle de chaussures carbone, météo).
+   - Identifie le LIEU PRÉCIS (monument visible en arrière-plan, kilomètre du tracé, quai, avenue).
+   - Identifie l'ATHLÈTE s'il s'agit d'un champion, ou le sas/catégorie et dossard si c'est un amateur.
+   - Détaille l'équipement pointu (chaussures exactes comme Nike Alphafly NEXT% 2, dossard #...).
+
+2. SI C'EST UNE CÉLÉBRITÉ / PERSONNALITÉ :
+   - Nom complet, nationalité, profession exacte.
+   - Événement précis où la photo a été prise (nom du festival, gala, avant-première, match, année exacte).
+   - Vêtements portés, marque de haute couture ou détails distinctifs.
+
+3. SI C'EST UN LIEU OU UN MONUMENT :
+   - Nom officiel exact, ville, pays, quartier ou coordonnées.
+   - Détails historiques ou architecturaux méconnus.
+
+4. SI C'EST UN OBJET / VÉHICULE / MONTRE / APPAREIL :
+   - Marque, modèle exact, référence constructeur ou millésime précis.
+   - Détails techniques pointus que le grand public ignore.
+
+5. CE QUE L'ŒIL HUMAIN NE VOIT PAS ("unseenDetails") :
+   - Cite 3 à 5 faits concrets et invisibles pour un non-initié, directement prouvés par l'image (logos secondaires, typographie de dossard, reflets, asymétries de couture, usure, horodatage solaire).
+
+6. DÉDUCTION COMPLÉMENTAIRE (OPTIONNELLE EN FIN) :
+   - Après avoir identifié ce que c'est, ajoute une courte déduction percutante sur la situation ou le profil.
+
+Fournis STRICTEMENT un JSON valide sans texte avant ni après, respectant cette structure exacte :
 {
-  "subject": "Nom précis et descriptif de ce que tu vois sur la photo (ex: 'Smartphone Samsung noir à écran fissuré', 'Paire de baskets Nike blanches tachées de boue', 'Bureau encombré avec tasse de thé tiède')",
-  "targetPersonProfile": "Profil psychologique et sociologique impitoyable déduit de la personne qui possède ou utilise cet élément (âge estimé, métier probable, niveau de stress, état d'esprit récent)",
-  "verdict": "La conclusion choc de Sherlock en une phrase cinglante et personnalisée",
-  "floatingKeywords": ["4 à 6 MOTS-CLÉS MAJUSCULES COURTS style série Sherlock : ex: GAUCHER, SOMMEIL PERTURBÉ, DÉPLACEMENT RÉCENT, MENSONGE"],
+  "subject": "Nom précis et complet (ex: 'Eliud Kipchoge au Marathon de Berlin 2022', 'Zendaya au Festival de Venise 2023', 'Rolex Submariner Date Réf. 126610LN')",
+  "identification": {
+    "mainSubject": "Identification principale claire et sans ambiguïté",
+    "category": "sports|celebrity|event|place|object|animal|artwork|vehicle|food|nature|other",
+    "categoryLabel": "COURSE & ATHLÉTISME|CÉLÉBRITÉ|ÉVÉNEMENT|LIEU HISTORIQUE|OBJET RARE|VÉHICULE|ŒUVRE|AUTRE",
+    "eventName": "Nom précis de l'événement s'il y a lieu (ex: '48e Marathon de Berlin', 'Grand Prix de Monaco 2023')",
+    "dateOrPeriod": "Date exacte ou période temporelle identifiable (ex: '25 septembre 2022', 'Édition Avril 2024')",
+    "location": "Lieu géographique exact identifiable sur la photo",
+    "facts": [
+      {"label": "Événement / Sujet", "value": "Nom précis", "icon": "🏆"},
+      {"label": "Date & Période", "value": "Date ou période précise", "icon": "📅"},
+      {"label": "Lieu précis", "value": "Localisation géographique détaillée", "icon": "📍"},
+      {"label": "Spécificité technique", "value": "Fait pointu d'expert", "icon": "🔬"},
+      {"label": "Équipement / Référence", "value": "Marque, modèle ou numéro officiel", "icon": "🏷️"}
+    ],
+    "unseenDetails": [
+      "Détail technique ou historique invisible pour le commun des mortels 1",
+      "Détail technique ou historique invisible pour le commun des mortels 2",
+      "Détail technique ou historique invisible pour le commun des mortels 3"
+    ],
+    "summary": "Résumé encyclopédique de Sherlock expliquant ce qu'est l'image avec une précision chirurgicale, révélant des informations factuelles fascinantes que l'utilisateur ne connaissait pas.",
+    "deductionNote": "Déduction finale concise de Sherlock découlant de l'identification."
+  },
+  "targetPersonProfile": "Profil succinct du sujet ou contexte humain.",
+  "verdict": "Verdict de Sherlock : identification nette et sans appel.",
+  "floatingKeywords": ["4 À 6 MOTS-CLÉS MAJUSCULES EN RAPPORT DIRECT AVEC L'IDENTIFICATION ET LES DÉTAILS"],
   "clues": [
     {
       "id": "clue-1",
-      "label": "Description d'un micro-détail PHYSIQUEMENT OBSERVABLE à cet endroit précis sur la photo",
-      "deduction": "La déduction logique et psychologique que Sherlock en tire",
-      "x": 45,
-      "y": 55,
-      "category": "behaviour",
-      "categoryLabel": "MICRO-INDICE",
+      "label": "Détail visuel observable servant de preuve",
+      "deduction": "Ce que ce détail prouve de façon incontestable",
+      "x": 48,
+      "y": 42,
+      "category": "identification",
+      "categoryLabel": "PREUVE IDENTITÉ",
       "confidence": 98
     }
   ],
-  "speechMonologue": "Le texte exact que l'utilisateur doit réciter à voix haute à ses amis pour les époustoufler. Sherlock s'exprime à la 1ère personne ('Ne dis rien...', 'Regarde bien...'). Le discours DOIT citer nommément les détails réels visibles sur cette photo avec son arrogance et son génie légendaires."
+  "speechMonologue": "Le texte à réciter à l'oral. Sherlock commence par IDENTIFIER immédiatement ce que c'est ('Vous croyez regarder [généralité] ? Ne soyez pas ridicule. C'est [Nom exact, événement, date]...'), cite les détails invisibles qui le prouvent, et conclut avec une déduction d'expert."
 }
+
+RÈGLES IMPORTANTES :
+- Priorité à la PRÉCISION et au SAVOIR FACTUEL.
+- 🚨 ANTI-HALLUCINATION : Si tu n'es PAS CERTAIN à 100% d'une information (nom, date, événement), utilise "Probablement", "Vraisemblablement", ou "Estimé à" dans le champ value des facts. Ne JAMAIS inventer un nom propre ou une date si tu ne la vois pas clairement sur l'image.
+- Si la photo est trop floue, générique ou sans signe distinctif clair, dis-le honnêtement dans summary ("L'image ne contient pas assez d'éléments distinctifs pour identifier précisément...") plutôt que d'inventer.
+- Les PREUVES VISUELLES doivent être réelles et observables : cite uniquement ce que l'image montre vraiment.
+- confidence dans les clues doit refléter la certitude réelle (jamais 99% si ce n'est pas évident).
+- 3 à 5 facts concrets dans identification.facts.
+- 3 à 5 unseenDetails concrets prouvés par l'image.
+- 3 à 6 clues répartis sur l'image avec coordonnées (x entre 10 et 90, y entre 12 et 88).
 `;
 
     const imageForMindPalace = displayImageSrc || base64Image;
 
     // Récupérer la liste des modèles réels supportés par cette clé
     const available = await this.getAvailableModels(key);
-    
-    // Construire la liste des candidats à tester (en commençant par le modèle en cache s'il est valide)
+
+    // Priorité aux modèles les plus précis pour la vision (2.0 >> 1.5)
+    const PREFERRED_ORDER = [
+      'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-2.0-pro',
+      'gemini-1.5-pro',
+      'gemini-1.5-flash',
+      'gemini-flash',
+    ];
+
+    // Construire la liste des candidats triés par préférence
     const candidatesToTry: string[] = [];
-    if (this.cachedModel && available.includes(this.cachedModel)) {
+    // Si un modèle est en cache ET c'est un modèle 2.0+, le réutiliser en premier
+    if (this.cachedModel && available.includes(this.cachedModel) && this.cachedModel.includes('2.')) {
       candidatesToTry.push(this.cachedModel);
     }
-
+    // Ajouter les modèles disponibles dans l'ordre de préférence
+    for (const preferred of PREFERRED_ORDER) {
+      const match = available.find(m => m.includes(preferred.replace('gemini-', '')));
+      if (match && !candidatesToTry.includes(match)) {
+        candidatesToTry.push(match);
+      }
+    }
+    // Fallback : tous les modèles restants
     for (const m of available) {
       if (!candidatesToTry.includes(m)) {
         candidatesToTry.push(m);
@@ -294,8 +374,8 @@ Fournis STRICTEMENT un JSON valide sans texte avant ni après, avec ce format :
         }
       ],
       generationConfig: {
-        temperature: 0.6,
-        maxOutputTokens: 3000,
+        temperature: 0.1,
+        maxOutputTokens: 3500,
         responseMimeType: 'application/json'
       }
     };
@@ -334,18 +414,53 @@ Fournis STRICTEMENT un JSON valide sans texte avant ni après, avec ce format :
   }
 
   private mapParsedToAnalysis(parsed: any, base64Image: string): SherlockAnalysis {
+    const defaultIdentification: ImageIdentification = {
+      mainSubject: parsed.subject || 'Élément Sous Examen',
+      category: 'other',
+      categoryLabel: 'IDENTIFICATION',
+      eventName: '',
+      dateOrPeriod: '',
+      location: '',
+      facts: [],
+      unseenDetails: [],
+      summary: 'Analyse complétée par Sherlock Holmes.',
+      deductionNote: parsed.verdict || ''
+    };
+
+    const identification: ImageIdentification = parsed.identification
+      ? {
+          mainSubject: parsed.identification.mainSubject || parsed.subject || defaultIdentification.mainSubject,
+          category: parsed.identification.category || 'other',
+          categoryLabel: (parsed.identification.categoryLabel || 'IDENTIFICATION').toUpperCase(),
+          eventName: parsed.identification.eventName || '',
+          dateOrPeriod: parsed.identification.dateOrPeriod || '',
+          location: parsed.identification.location || '',
+          facts: (parsed.identification.facts || []).map((f: any) => ({
+            label: f.label || '',
+            value: f.value || '',
+            icon: f.icon || '📌'
+          })),
+          unseenDetails: Array.isArray(parsed.identification.unseenDetails)
+            ? parsed.identification.unseenDetails
+            : [],
+          summary: parsed.identification.summary || '',
+          deductionNote: parsed.identification.deductionNote || parsed.verdict || ''
+        }
+      : defaultIdentification;
+
     return {
-      subject: parsed.subject || 'Élément Sous Examen',
+      subject: parsed.subject || identification.mainSubject || 'Élément Sous Examen',
+      identification,
       targetPersonProfile: parsed.targetPersonProfile || 'Sujet sous observation approfondie',
-      verdict: parsed.verdict || 'Déduction concluante établie par observation directe.',
-      floatingKeywords: (parsed.floatingKeywords || ['OBSERVATION', 'DÉDUCTION', 'LONDRES']).map((k: string) => k.toUpperCase()),
+      verdict: parsed.verdict || identification.deductionNote || 'Identification certifiée par le Palais Mental.',
+      floatingKeywords: (parsed.floatingKeywords || ['IDENTIFICATION', 'OBSERVATION', 'DÉDUCTION']).map((k: string) => k.toUpperCase()),
       clues: (parsed.clues || []).map((c: any, index: number) => ({
         id: c.id || `clue-${index + 1}`,
         label: c.label || 'Détail observable',
         deduction: c.deduction || 'Déduction logique.',
         x: Math.max(10, Math.min(90, Number(c.x) || 50)),
         y: Math.max(12, Math.min(88, Number(c.y) || 50)),
-        category: c.category || 'behaviour',
+        category: c.category || 'identification',
         categoryLabel: (c.categoryLabel || 'INDICE').toUpperCase(),
         confidence: Number(c.confidence) || 96
       })),
