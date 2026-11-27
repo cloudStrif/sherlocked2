@@ -1,65 +1,63 @@
 <div class="min-h-screen bg-[#030712] text-gray-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
-  
-  <!-- Header / Navigation de Sherlock -->
-  <header class="sticky top-0 z-40 bg-gray-950/80 backdrop-blur-xl border-b border-gray-800/80 px-4 py-3">
-    <div class="max-w-5xl mx-auto flex items-center justify-between">
-      
-      <!-- Logo & Titre BBC Sherlock -->
-      <div class="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" (click)="resetInvestigation()">
-        <div class="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-cyan-900 to-gray-900 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)] shrink-0">
-          <span class="font-serif font-black text-cyan-300 text-base sm:text-lg">221</span>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-gray-950/85 backdrop-blur-xl border-b border-gray-800/80 px-3 sm:px-4 py-3">
+    <div class="max-w-5xl mx-auto flex items-center justify-between gap-2">
+
+      <!-- Logo & Titre -->
+      <div class="flex items-center gap-2.5 sm:gap-3 cursor-pointer min-w-0" (click)="resetScan()">
+        <div class="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-900 to-gray-900 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)] shrink-0">
+          <span class="font-serif font-black text-cyan-300 text-lg">221</span>
           <span class="absolute -bottom-1 -right-1 text-[8px] font-mono font-bold text-cyan-400 bg-black px-1 rounded border border-cyan-500/40">B</span>
         </div>
         <div class="min-w-0">
           <h1 class="text-base sm:text-lg font-serif font-extrabold tracking-wider text-white uppercase flex items-center gap-1.5">
-            <span>SHERLOCKED</span>
-            <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">AI</span>
+            <span class="truncate">SHERLOCKED</span>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shrink-0">OCR</span>
           </h1>
-          <p class="text-[9px] sm:text-[10px] text-gray-400 font-mono tracking-widest uppercase truncate">The Science of Deduction</p>
+          <p class="text-[9px] sm:text-[10px] text-gray-400 font-mono tracking-wider uppercase truncate">
+            Photo &rarr; Texte &amp; Code // Export Fichier
+          </p>
         </div>
       </div>
 
-      <!-- Statut Gemini & Bouton Réglages Clé API -->
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          (click)="showApiModal.set(true)"
-          class="px-2 sm:px-3 py-1.5 rounded-xl border transition-all text-[10px] sm:text-xs font-mono flex items-center gap-1.5 sm:gap-2"
-          [ngClass]="geminiService.apiKey()
-            ? 'bg-cyan-950/60 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
-            : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'"
-        >
-          <span
-            class="w-2 h-2 rounded-full"
-            [ngClass]="geminiService.apiKey() ? 'bg-cyan-400 animate-ping' : 'bg-amber-400'"
-          ></span>
-          <span>
-            <span class="hidden sm:inline">{{ geminiService.apiKey() ? 'Google Gemini Actif' : 'Mode Démo (Clé API)' }}</span>
-            <span class="sm:hidden">{{ geminiService.apiKey() ? 'Gemini ✓' : 'Clé API' }}</span>
-          </span>
-        </button>
-      </div>
+      <!-- Bouton Clé API Gemini -->
+      <button
+        type="button"
+        (click)="showApiModal.set(true)"
+        class="px-2.5 sm:px-3 py-1.5 rounded-xl border transition-all text-[11px] sm:text-xs font-mono flex items-center gap-2 shrink-0 cursor-pointer"
+        [ngClass]="geminiService.apiKey()
+          ? 'bg-cyan-950/60 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+          : 'bg-gray-900 border-amber-500/50 text-amber-300 hover:text-white hover:border-amber-400'"
+      >
+        <span
+          class="w-2 h-2 rounded-full shrink-0"
+          [ngClass]="geminiService.apiKey() ? 'bg-cyan-400 animate-pulse' : 'bg-amber-400'"
+        ></span>
+        <span class="hidden sm:inline">{{ geminiService.apiKey() ? 'Gemini Actif' : 'Configurer Clé API' }}</span>
+        <span class="sm:hidden">{{ geminiService.apiKey() ? 'API OK' : 'Clé API' }}</span>
+      </button>
 
     </div>
   </header>
 
-  <!-- Input fichier masqué pour sélection d'image ou photo mobile -->
+  <!-- Input fichier multiple masqué -->
   <input
     type="file"
     #fileInput
     class="hidden"
     accept="image/*"
-    capture="environment"
-    (change)="onFileSelected($event)"
+    multiple
+    (change)="onFilesSelected($event)"
   />
 
   <!-- Contenu Principal -->
-  <main class="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 flex flex-col items-center justify-center">
+  <main class="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-4 md:p-6 flex flex-col items-center justify-center">
 
     <!-- Bannière d'Erreur API -->
     @if (geminiService.errorMessage()) {
-      <div class="w-full max-w-2xl mb-6 p-4 rounded-2xl bg-rose-950/70 border border-rose-500/50 text-rose-200 text-xs font-mono flex items-center justify-between gap-3 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
-        <div class="flex items-center gap-2.5">
+      <div class="w-full max-w-3xl mb-6 p-3.5 sm:p-4 rounded-2xl bg-rose-950/70 border border-rose-500/50 text-rose-200 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
+        <div class="flex items-start sm:items-center gap-2.5">
           <svg class="w-5 h-5 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
@@ -68,7 +66,7 @@
         <button
           type="button"
           (click)="showApiModal.set(true)"
-          class="shrink-0 px-3 py-1.5 rounded-xl bg-rose-900/80 hover:bg-rose-800 text-rose-100 font-bold border border-rose-400/40 transition-colors"
+          class="shrink-0 px-3 py-1.5 rounded-xl bg-rose-900/80 hover:bg-rose-800 text-rose-100 font-bold border border-rose-400/40 transition-colors cursor-pointer self-end sm:self-auto"
         >
           Configurer la clé
         </button>
@@ -76,167 +74,169 @@
     }
 
     <!-- =========================================================================
-         1. ÉCRAN DE CHARGEMENT : PALAIS MENTAL EN TRAIN D'ANALYSER
+         1. CHARGEMENT : EXTRACTION IA EN COURS
          ========================================================================= -->
     @if (geminiService.isAnalyzing()) {
-      <div class="w-full max-w-md p-8 rounded-3xl bg-gray-950/90 border border-cyan-500/40 shadow-[0_0_60px_rgba(6,182,212,0.3)] text-center space-y-6 animate-in zoom-in-95 duration-300">
-        <!-- Réticule tournant & Radar -->
-        <div class="relative w-28 h-28 mx-auto flex items-center justify-center">
+      <div class="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-gray-950/90 border border-cyan-500/40 shadow-[0_0_60px_rgba(6,182,212,0.3)] text-center space-y-6 animate-in zoom-in-95 duration-300">
+        <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
           <div class="absolute inset-0 rounded-full border-2 border-dashed border-cyan-400/40 animate-spin" style="animation-duration: 8s;"></div>
           <div class="absolute inset-2 rounded-full border border-cyan-300/30 animate-ping opacity-40"></div>
-          <div class="w-14 h-14 rounded-full bg-cyan-950/80 border border-cyan-400 flex items-center justify-center shadow-[0_0_20px_#22d3ee]">
-            <svg class="w-7 h-7 text-cyan-300 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          <div class="w-12 h-12 rounded-full bg-cyan-950/80 border border-cyan-400 flex items-center justify-center shadow-[0_0_20px_#22d3ee]">
+            <svg class="w-6 h-6 text-cyan-300 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
             </svg>
           </div>
         </div>
 
         <div>
           <h3 class="text-lg font-serif font-bold text-white tracking-wide">
-            Consultation du Palais Mental...
+            Extraction en cours...
           </h3>
           <p class="text-xs text-cyan-300/80 font-mono mt-1">
-            Recherche de micro-indices, asymétries et traces invisibles
+            Lecture et transcription de {{ capturedPhotos().length }} photo(s)
           </p>
         </div>
 
         <div class="space-y-1.5 text-[11px] font-mono text-gray-400 text-left bg-black/60 p-3 rounded-xl border border-gray-800">
-          <p class="text-cyan-400">&gt; Scan optique en haute résolution...</p>
-          <p class="text-gray-300">&gt; Isolement des variables psychologiques...</p>
-          <p class="text-gray-400">&gt; Génération de la réplique orale...</p>
+          <p class="text-cyan-400">&gt; Analyse haute précision des caractères...</p>
+          <p class="text-gray-300">&gt; Préservation de l'indentation &amp; syntaxe...</p>
+          <p class="text-gray-400">&gt; Préparation du fichier téléchargeable...</p>
         </div>
       </div>
     }
 
     <!-- =========================================================================
-         2. ÉCRAN RÉSULTAT : LE PALAIS MENTAL (PHOTO + INDICES + SCRIPT)
+         2. RÉSULTAT : AFFICHAGE DU CODE / TEXTE + COPIER + TÉLÉCHARGER
          ========================================================================= -->
-    @else if (currentAnalysis()) {
-      <app-mind-palace
-        [analysis]="currentAnalysis()!"
-        (newInvestigation)="resetInvestigation()"
-      ></app-mind-palace>
+    @else if (extractionResult(); as result) {
+      <app-extraction-result
+        [result]="result"
+        (newScan)="resetScan()"
+      ></app-extraction-result>
     }
 
     <!-- =========================================================================
-         3. ÉCRAN D'ACCUEIL : DÉCLENCHEUR D'ENQUÊTE & APPAREIL PHOTO
+         3. ACCUEIL & FILE D'ATTENTE MULTI-PHOTOS
          ========================================================================= -->
     @else {
-      <div class="w-full max-w-2xl space-y-8 text-center animate-in fade-in duration-500">
-        
-        <!-- Titre & Introduction Sherlock -->
-        <div class="space-y-3">
-          <span class="inline-block px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 tracking-widest uppercase shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-            <span class="hidden sm:inline">Scan Photo &bull; Identification Précise &bull; Déduction IA</span>
-            <span class="sm:hidden">Scan Photo &bull; Déduction IA</span>
+      <div class="w-full max-w-3xl space-y-6 text-center animate-in fade-in duration-300">
+
+        <!-- Titre -->
+        <div class="space-y-2.5">
+          <span class="inline-block px-3 py-1 rounded-full text-[10px] sm:text-xs font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 tracking-widest uppercase">
+            1 à plusieurs photos &bull; Code &amp; Texte &bull; Fichier prêt
           </span>
-          <h2 class="text-2xl sm:text-3xl md:text-5xl font-serif font-black text-white tracking-tight">
-            Vous voyez. <br>
-            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-cyan-200">
-              Sherlock sait et déduit.
+          <h2 class="text-2xl sm:text-4xl font-serif font-black text-white tracking-tight">
+            Prenez vos photos. <br>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-300">
+              Récupérez le code &amp; le fichier.
             </span>
           </h2>
-          <p class="text-sm md:text-base text-gray-400 max-w-lg mx-auto font-light leading-relaxed">
-            Scannez n'importe quelle photo : une course, une célébrité, un lieu, un objet. Sherlock identifie avec une précision chirurgicale l'événement, la date, le contexte et les détails que l'œil humain ne voit pas.
+          <p class="text-xs sm:text-sm text-gray-400 max-w-xl mx-auto leading-relaxed">
+            Prenez en photo un écran de code, des notes ou un document (1 ou plusieurs photos à la suite). L'IA extrait le texte exact, fusionne les captures et génère un fichier prêt à copier ou télécharger.
           </p>
         </div>
 
-        <!-- Viseur Caméra Virtuel Stylisé BBC Sherlock -->
-        <div class="relative w-full aspect-video max-h-72 rounded-3xl bg-gray-950/80 border border-cyan-500/30 overflow-hidden flex flex-col items-center justify-center p-6 shadow-2xl group">
-          <!-- 4 Coins du Viseur Reticle (┌ ┐ └ ┘) -->
-          <span class="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-cyan-400 shadow-[0_0_10px_#22d3ee]"></span>
-          <span class="absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2 border-cyan-400 shadow-[0_0_10px_#22d3ee]"></span>
-          <span class="absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2 border-cyan-400 shadow-[0_0_10px_#22d3ee]"></span>
-          <span class="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-cyan-400 shadow-[0_0_10px_#22d3ee]"></span>
-
-          <!-- Grille de coordonnées en fond -->
-          <div class="absolute inset-0 bg-[radial-gradient(#06b6d4_0.75px,transparent_0.75px)] bg-[size:20px_20px] opacity-15 pointer-events-none"></div>
-
-          <!-- Croix centrale de mise au point -->
-          <div class="relative w-16 h-16 rounded-full border border-cyan-400/40 flex items-center justify-center">
-            <span class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></span>
-            <span class="absolute -top-3 w-px h-3 bg-cyan-400/60"></span>
-            <span class="absolute -bottom-3 w-px h-3 bg-cyan-400/60"></span>
-            <span class="absolute -left-3 h-px w-3 bg-cyan-400/60"></span>
-            <span class="absolute -right-3 h-px w-3 bg-cyan-400/60"></span>
-          </div>
-
-          <p class="text-xs font-mono text-cyan-300/70 mt-4 tracking-wider uppercase">
-            Capteur Prêt // Pointez vers l'élément suspect
-          </p>
-
-          <!-- Boutons de Déclenchement -->
-          <div class="mt-5 flex flex-col xs:flex-row flex-wrap items-center justify-center gap-2 sm:gap-3 relative z-10 w-full px-2 sm:px-0">
+        <!-- Boutons de capture -->
+        <div class="p-5 sm:p-6 rounded-3xl bg-gray-950/80 border border-cyan-500/30 shadow-2xl space-y-4">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
             <button
               type="button"
-              (click)="captureWithCamera()"
-              class="w-full xs:w-auto px-5 sm:px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-gray-950 font-mono text-[11px] sm:text-xs font-bold flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(6,182,212,0.5)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              (click)="openLiveCamera()"
+              class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-gray-950 font-mono text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(6,182,212,0.4)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span>Prendre une Photo</span>
+              <span>{{ capturedPhotos().length ? '+ Prendre une autre photo' : 'Prendre une Photo' }}</span>
             </button>
 
             <button
               type="button"
               (click)="selectFromGallery()"
-              class="w-full xs:w-auto px-4 sm:px-5 py-3 rounded-2xl bg-gray-900/90 hover:bg-gray-800 text-gray-200 hover:text-white border border-gray-700 hover:border-cyan-400 font-mono text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-2 hover:scale-102 active:scale-95 transition-all cursor-pointer"
+              class="px-5 py-3.5 rounded-2xl bg-gray-900 hover:bg-gray-800 text-gray-200 hover:text-white border border-gray-700 hover:border-cyan-400 font-mono text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span>Choisir une Image</span>
+              <span>{{ capturedPhotos().length ? '+ Ajouter des images' : 'Choisir 1 ou plusieurs images' }}</span>
             </button>
           </div>
-        </div>
 
-        <!-- =========================================================================
-             CAS DE DÉMONSTRATION EN 1 CLIC (Instantané, sans attendre d'API)
-             ========================================================================= -->
-        <div class="space-y-4 pt-4 text-left">
-          <div class="flex items-center justify-between">
-            <h3 class="text-xs font-mono font-bold tracking-widest text-cyan-400 uppercase">
-              Ou tester un cas d'école en 1 clic :
-            </h3>
-            <span class="text-[11px] text-gray-500 font-mono">Démonstrations complètes</span>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            @for (c of mockCases; track c.id) {
-              <div
-                (click)="loadMockCase(c)"
-                class="group p-3.5 rounded-2xl bg-gray-950/70 border border-gray-800 hover:border-cyan-400/60 transition-all duration-300 hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:-translate-y-1 cursor-pointer flex flex-col justify-between"
-              >
-                <div>
-                  <div class="relative w-full h-28 rounded-xl overflow-hidden mb-2.5 bg-gray-900">
-                    <img
-                      [src]="c.thumbnail"
-                      [alt]="c.name"
-                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-90 group-hover:brightness-100"
-                    />
-                    <span class="absolute top-1.5 left-1.5 px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-black/80 text-cyan-300 border border-cyan-500/40">
-                      {{ c.analysis.clues.length }} indices
-                    </span>
-                  </div>
-
-                  <h4 class="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors font-serif line-clamp-1">
-                    {{ c.name }}
-                  </h4>
-                  <p class="text-[11px] text-gray-400 line-clamp-2 mt-1">
-                    {{ c.description }}
-                  </p>
-                </div>
-
-                <div class="mt-3 pt-2 border-t border-gray-800/80 flex items-center justify-between text-[10px] font-mono text-cyan-400 font-semibold">
-                  <span>Explorer le Mind Palace</span>
-                  <span class="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                </div>
+          <!-- File d'attente des photos sélectionnées -->
+          @if (capturedPhotos().length > 0) {
+            <div class="pt-4 border-t border-gray-800 space-y-4 text-left">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-mono font-bold text-cyan-300 uppercase tracking-wider">
+                  Photos prêtes à extraire ({{ capturedPhotos().length }})
+                </span>
+                <button
+                  type="button"
+                  (click)="clearPhotos()"
+                  class="text-[11px] font-mono text-rose-400 hover:text-rose-300 cursor-pointer"
+                >
+                  Tout effacer
+                </button>
               </div>
-            }
-          </div>
+
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                @for (photo of capturedPhotos(); track photo.id; let idx = $index) {
+                  <div class="relative rounded-xl overflow-hidden border border-gray-700 bg-black flex flex-col">
+                    <div class="relative aspect-video bg-gray-900">
+                      <img [src]="photo.dataUrl" [alt]="photo.name" class="w-full h-full object-cover" />
+                      <span class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/85 text-[10px] font-mono font-bold text-cyan-300 border border-cyan-500/40">
+                        #{{ idx + 1 }}
+                      </span>
+                      <button
+                        type="button"
+                        (click)="removePhoto(photo.id)"
+                        class="absolute top-1.5 right-1.5 w-6 h-6 rounded-lg bg-black/80 hover:bg-rose-600 text-white flex items-center justify-center text-xs cursor-pointer transition-colors"
+                        title="Supprimer"
+                      >
+                        &times;
+                      </button>
+                    </div>
+
+                    @if (capturedPhotos().length > 1) {
+                      <div class="p-1.5 bg-gray-950 flex items-center justify-between gap-1 border-t border-gray-800">
+                        <button
+                          type="button"
+                          (click)="movePhoto(idx, -1)"
+                          [disabled]="idx === 0"
+                          class="flex-1 py-1 rounded bg-gray-900 hover:bg-gray-800 text-[10px] font-mono text-gray-300 disabled:opacity-30 cursor-pointer"
+                        >
+                          &larr;
+                        </button>
+                        <button
+                          type="button"
+                          (click)="movePhoto(idx, 1)"
+                          [disabled]="idx === capturedPhotos().length - 1"
+                          class="flex-1 py-1 rounded bg-gray-900 hover:bg-gray-800 text-[10px] font-mono text-gray-300 disabled:opacity-30 cursor-pointer"
+                        >
+                          &rarr;
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+
+              <!-- Bouton principal d'extraction -->
+              <button
+                type="button"
+                (click)="extractAllPhotos()"
+                class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-gray-950 font-mono text-sm font-extrabold flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.4)] hover:scale-[1.01] active:scale-95 transition-all cursor-pointer"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>
+                  Extraire le texte et créer le fichier ({{ capturedPhotos().length }} photo{{ capturedPhotos().length > 1 ? 's' : '' }})
+                </span>
+              </button>
+            </div>
+          }
         </div>
 
       </div>
@@ -244,7 +244,7 @@
 
   </main>
 
-  <!-- Modal Caméra Directe (Webcam PC / Smartphone) -->
+  <!-- Modal Caméra Directe -->
   @if (showCameraModal()) {
     <app-camera-modal
       (photoCaptured)="onCameraPhotoCaptured($event)"
@@ -252,17 +252,14 @@
     ></app-camera-modal>
   }
 
-  <!-- Modal pour la clé API Google AI Studio -->
+  <!-- Modal Clé API Gemini -->
   @if (showApiModal()) {
     <app-api-modal (close)="showApiModal.set(false)" (saved)="onApiKeySaved()"></app-api-modal>
   }
 
-  <!-- Footer Discret avec guide Android -->
-  <footer class="mt-auto border-t border-gray-900 py-4 px-4 text-center text-[11px] text-gray-500 font-mono">
-    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-      <span>Sherlocked &bull; Powered by Google Gemini &amp; Capacitor</span>
-      <span class="text-gray-400">Pour compiler en APK Android : <code class="px-1.5 py-0.5 bg-gray-900 rounded text-cyan-400 border border-gray-800">npx cap add android</code></span>
-    </div>
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-gray-900 py-3 px-4 text-center text-[11px] text-gray-500 font-mono">
+    <span>Sherlocked OCR &bull; Powered by Google Gemini Vision</span>
   </footer>
 
 </div>

@@ -1,5 +1,10 @@
 import { Injectable, signal, WritableSignal } from '@angular/core';
-import { SherlockAnalysis, SherlockClue, ImageIdentification } from '../models/sherlock.model';
+import { TextExtractionResult } from '../models/sherlock.model';
+
+export interface ImagePayload {
+  base64: string;
+  mimeType: string;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -11,6 +16,7 @@ export class GeminiService {
   public readonly apiKey: WritableSignal<string> = signal('');
   public readonly isAnalyzing: WritableSignal<boolean> = signal(false);
   public readonly errorMessage: WritableSignal<string | null> = signal(null);
+  public readonly activeModel: WritableSignal<string | null> = signal(null);
 
   private cachedModel: string | null = null;
   private knownSupportedModels: string[] = [];
@@ -22,7 +28,6 @@ export class GeminiService {
     }
 
     const cached = localStorage.getItem(this.STORAGE_MODEL_KEY);
-    // Nettoyer tout ancien modèle expérimental obsolète
     if (cached && !cached.includes('-exp')) {
       this.cachedModel = cached.replace(/^models\//, '');
     } else {
@@ -64,13 +69,11 @@ export class GeminiService {
       if (resp.ok) {
         const data = await resp.json();
         const models = (data.models || []) as Array<{ name: string; supportedGenerationMethods?: string[] }>;
-        
-        // Garder uniquement les modèles qui supportent generateContent et exclure les anciens modèles -exp
+
         const supported = models
           .filter(m => (!m.supportedGenerationMethods || m.supportedGenerationMethods.includes('generateContent')) && !m.name.includes('-exp'))
           .map(m => m.name.replace(/^models\//, ''));
 
-        // Prioriser : Flash d'abord (1.5-flash, 2.0-flash), puis Pro
         supported.sort((a, b) => {
           const aFlash = a.includes('flash') ? 0 : 1;
           const bFlash = b.includes('flash') ? 0 : 1;
@@ -87,8 +90,7 @@ export class GeminiService {
       console.warn('Impossible de lister les modèles en ligne via ListModels:', e);
     }
 
-    // Modèles stables par défaut (sans aucun -exp)
-    return ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    return ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
   }
 
   /**
@@ -143,7 +145,7 @@ export class GeminiService {
         success: false,
         message: `Erreur Google AI (${resp.status}) : ${errDetail}`
       };
-    } catch (networkErr: any) {
+    } catch {
       return {
         success: false,
         message: 'Impossible de joindre Google (vérifiez la connexion ou désactivez un adblocker bloquant googleapis.com).'
@@ -152,191 +154,82 @@ export class GeminiService {
   }
 
   /**
-   * Analyse une photo de façon ultra-rapide avec Google Gemini Flash
+   * Extrait fidèlement tout le texte ou code depuis 1 à N photos
    */
-  public async analyzeImage(
-    base64Image: string,
-    mimeType: string = 'image/jpeg',
-    displayImageSrc?: string
-  ): Promise<SherlockAnalysis> {
+  public async extractTextFromImages(
+    images: ImagePayload[],
+    displayImages: string[] = []
+  ): Promise<TextExtractionResult> {
     this.isAnalyzing.set(true);
     this.errorMessage.set(null);
     const key = this.apiKey();
 
     if (!key) {
       this.isAnalyzing.set(false);
-      this.errorMessage.set('Aucune clé API configurée. Veuillez coller votre clé Google Gemini pour que Sherlock analyse cette photo.');
+      this.errorMessage.set('Aucune clé API configurée. Veuillez coller votre clé Google Gemini pour extraire le texte.');
       throw new Error('NO_API_KEY');
     }
 
-    // Extraction propre du MIME type et du base64 brut
-    let resolvedMime = mimeType || 'image/jpeg';
-    let cleanBase64 = base64Image;
-
-    if (base64Image.includes(',')) {
-      const parts = base64Image.split(',');
-      const header = parts[0];
-      cleanBase64 = parts[1];
-      const match = header.match(/^data:([^;]+);base64/);
-      if (match) {
-        resolvedMime = match[1];
-      }
+    if (!images.length) {
+      this.isAnalyzing.set(false);
+      this.errorMessage.set('Aucune image fournie pour l\'extraction.');
+      throw new Error('NO_IMAGES');
     }
 
-    cleanBase64 = cleanBase64.replace(/\s/g, '');
+    const preparedImages = images.map(img => this.normalizeBase64(img.base64, img.mimeType));
 
     const prompt = `
-Tu es Sherlock Holmes (incarnation moderne BBC avec Benedict Cumberbatch).
-Tu disposes d'une mémoire encyclopédique sur les OBJETS, LIEUX, ÉVÉNEMENTS et MARQUES.
+Tu es un moteur OCR expert spécialisé dans la transcription fidèle de CODE INFORMATIQUE et de TEXTE ÉCRIT à partir de photos (écrans d'ordinateur, feuilles imprimées, notes manuscrites, tableaux, documents).
 
-══════════════════════════════════════════════════════════════════════
-RÈGLE ABSOLUE N°1 : JAMAIS DE RECONNAISSANCE FACIALE
-══════════════════════════════════════════════════════════════════════
-🚨 Tu es INCAPABLE d'identifier qui est une personne sur une photo. C'est une limite absolue.
-Ne dis JAMAIS "c'est [nom d'une célébrité]", "c'est [nom d'un politique]", "c'est un prince", etc.
-Si la photo montre un visage humain, TU NE SAIS PAS QUI C'EST. Point.
-À la place, Sherlock DÉDUIT : âge estimé, profession probable, humeur, niveau social, habitudes.
-C'est ça le génie de Sherlock — pas de la reconnaissance faciale, de la DÉDUCTION comportementale.
+L'utilisateur t'envoie ${preparedImages.length} photo(s) dans l'ordre.
 
-══════════════════════════════════════════════════════════════════════
-CE QUE SHERLOCK SAIT VRAIMENT IDENTIFIER (sans halluciner) :
-══════════════════════════════════════════════════════════════════════
-
-1. OBJETS / PRODUITS : marque visible, modèle, année, référence (ex: Nike Air Max 95, Rolex Submariner 126610LN, iPhone 15 Pro Max)
-   → Lis les logos, les textes, les caractéristiques visuelles distinctives réellement visibles sur l'image.
-
-2. LIEUX / MONUMENTS : identifie si un monument ou lieu CONNU est visible (Tour Eiffel, Times Square, Big Ben...)
-   → Uniquement si clairement visible dans l'arrière-plan.
-
-3. ÉVÉNEMENTS SPORTIFS avec dossard : lis le texte du dossard, le logo de l'événement, les sponsors sur les banderoles.
-   → Si un dossard montre "PARIS MARATHON 2024", dis-le. Si tu ne peux pas lire, ne devine pas.
-
-4. NOURRITURE : identifie le plat, la cuisine d'origine.
-
-5. ANIMAUX : race précise.
-
-6. VÉHICULES : marque + modèle lisible sur l'image.
-
-══════════════════════════════════════════════════════════════════════
-POUR UNE PERSONNE ANONYME → MODE DÉDUCTION PURE (style BBC Sherlock)
-══════════════════════════════════════════════════════════════════════
-Analyse :
-- Posture, expression, regard
-- Vêtements (marque visible, style, état d'usure, cohérence de la tenue)
-- Mains (callositées, manucure, bagues, montre)
-- Contexte (où est-elle, que fait-elle)
-- Indices comportementaux (tension, confiance, fatigue)
-Déduis : âge estimé, profession probable, état émotionnel actuel, habitudes récentes.
-NE NOMME JAMAIS la personne. Ne dis pas "il ressemble à X".
-
-══════════════════════════════════════════════════════════════════════
-FORMAT DE RÉPONSE JSON STRICT
-══════════════════════════════════════════════════════════════════════
-Fournis STRICTEMENT un JSON valide sans texte avant ni après :
+RÈGLES STRICTES DE TRANSCRIPTION :
+1. TRANSCRIS TOUT LE TEXTE/CODE VISIBLE avec une fidélité maximale, caractère par caractère :
+   - Préserve exactement l'indentation (espaces / tabulations), les sauts de ligne, les accolades { }, crochets [ ], parenthèses ( ), guillemets ' " \`, points-virgules ; et opérateurs.
+   - Ne résume JAMAIS le code et ne remplace JAMAIS des lignes par "// ...". Transcris 100% du contenu lisible.
+   - Ignore les éléments d'interface parasite autour de la zone utile (ex: barre des tâches Windows/Mac, numéros de ligne dans la gouttière d'un éditeur VS Code, icônes de fenêtre) sauf s'ils font partie du texte.
+2. GESTION MULTI-PHOTOS (${preparedImages.length} image(s)) :
+   - Si les photos montrent la suite d'un même fichier de code ou d'un même document, FUSIONNE-les proprement dans l'ordre en supprimant les lignes en double au niveau du chevauchement.
+   - Si les photos montrent des extraits indépendants, sépare-les clairement par une ligne vide (ou un commentaire de séparation si c'est du code).
+3. FORMAT DE SORTIE :
+   - Retourne STRICTEMENT un objet JSON valide sans texte ni balise markdown avant ou après :
 {
-  "subject": "Description précise de ce que montre la photo (ex: 'Homme, ~35 ans, cadre ou ingénieur, jean slim gris et veste Patagonia navy' | 'Nike Air Jordan 1 Retro High OG Chicago 1985' | 'Stade de France vu du terrain')",
-  "identification": {
-    "mainSubject": "Sujet principal en une phrase courte",
-    "category": "person|object|place|event|animal|food|vehicle|artwork|nature|other",
-    "categoryLabel": "ANALYSE D'INDIVIDU|IDENTIFICATION PRODUIT|LIEU IDENTIFIÉ|ÉVÉNEMENT SPORTIF|ANIMAL|CUISINE|VÉHICULE|ŒUVRE|NATURE|AUTRE",
-    "facts": [
-      {"label": "Type", "value": "Ce que c'est précisément", "icon": "🔍"},
-      {"label": "Détail clé 1", "value": "Fait observable sur l'image", "icon": "👁️"},
-      {"label": "Détail clé 2", "value": "Fait observable sur l'image", "icon": "🔬"},
-      {"label": "Contexte", "value": "Situation ou environnement visible", "icon": "📍"}
-    ],
-    "unseenDetails": [
-      "Détail subtil que seul un expert remarquerait (réellement visible sur l'image)",
-      "Deuxième détail subtil et observable",
-      "Troisième détail subtil et observable"
-    ],
-    "summary": "Analyse de Sherlock en 3-4 phrases. Pour une personne : déduction comportementale sans nommer. Pour un objet/lieu/événement : informations factuelles précises avec ce qui est visible sur l'image.",
-    "deductionNote": "La conclusion la plus percutante de Sherlock."
-  },
-  "targetPersonProfile": "Pour une personne : profil déduit (âge, métier probable, état émotionnel). Pour un objet : contexte d'utilisation ou propriétaire probable.",
-  "verdict": "Verdict Sherlock en une phrase cinglante basée sur les faits OBSERVÉS.",
-  "floatingKeywords": ["4 À 6 MOTS-CLÉS MAJUSCULES courts résumant les déductions clés"],
-  "clues": [
-    {
-      "id": "clue-1",
-      "label": "Détail visuellement observable et précis",
-      "deduction": "Ce que ce détail révèle de façon logique",
-      "x": 48,
-      "y": 42,
-      "category": "behaviour",
-      "categoryLabel": "COMPORTEMENT",
-      "confidence": 85
-    }
-  ],
-  "speechMonologue": "Le texte que l'utilisateur récite à voix haute. Pour une personne : Sherlock commence par observer sans nommer ('Ne dis rien... Regarde tes mains...') puis enchaîne les déductions comportementales. Pour un objet/lieu : commence par 'Vous croyez voir [généralité] ? Non. C'est précisément [identification détaillée]...' avec les preuves visuelles."
+  "title": "Titre court décrivant le contenu (ex: 'Composant Angular UserProfile', 'Script Python de tri', 'Notes de réunion')",
+  "contentType": "code" | "text" | "mixed",
+  "language": "Langage détecté en minuscules (ex: 'typescript', 'javascript', 'python', 'html', 'css', 'json', 'java', 'csharp', 'php', 'sql', 'bash', 'markdown', 'plaintext')",
+  "suggestedFilename": "Nom de fichier pertinent avec la bonne extension (ex: 'user-profile.component.ts', 'script.py', 'document.txt')",
+  "extractedText": "Le texte ou code complet extrait, avec \\n pour les sauts de ligne.",
+  "summary": "Une seule phrase courte précisant ce qui a été extrait (ex: 'Code TypeScript extrait et fusionné depuis 2 captures d\\'écran')."
 }
 
-RÈGLES ABSOLUES :
-🚨 JAMAIS nommer une personne visible sur la photo (ni célébrité supposée, ni titre nobiliaire).
-✅ Cite UNIQUEMENT ce qui est RÉELLEMENT VISIBLE sur l'image.
-✅ Si incertain : utilise "probablement", "estimé", "vraisemblablement".
-✅ confidence dans les clues = certitude réelle (60-85 pour déductions, 90-99 seulement si texte lisible sur l'image).
-✅ 3 à 6 clues, 3 à 5 facts, 3 à 5 unseenDetails.
+Si aucun texte lisible n'est présent sur les images, mets "extractedText": "" et explique-le brièvement dans "summary".
 `;
 
-    const imageForMindPalace = displayImageSrc || base64Image;
-
-    // Récupérer la liste des modèles réels supportés par cette clé
     const available = await this.getAvailableModels(key);
-
-    // Priorité aux modèles les plus précis pour la vision (2.0 >> 1.5)
-    const PREFERRED_ORDER = [
-      'gemini-2.0-flash',
-      'gemini-2.5-flash',
-      'gemini-2.5-pro',
-      'gemini-2.0-pro',
-      'gemini-1.5-pro',
-      'gemini-1.5-flash',
-      'gemini-flash',
-    ];
-
-    // Construire la liste des candidats triés par préférence
-    const candidatesToTry: string[] = [];
-    // Si un modèle est en cache ET c'est un modèle 2.0+, le réutiliser en premier
-    if (this.cachedModel && available.includes(this.cachedModel) && this.cachedModel.includes('2.')) {
-      candidatesToTry.push(this.cachedModel);
-    }
-    // Ajouter les modèles disponibles dans l'ordre de préférence
-    for (const preferred of PREFERRED_ORDER) {
-      const match = available.find(m => m.includes(preferred.replace('gemini-', '')));
-      if (match && !candidatesToTry.includes(match)) {
-        candidatesToTry.push(match);
-      }
-    }
-    // Fallback : tous les modèles restants
-    for (const m of available) {
-      if (!candidatesToTry.includes(m)) {
-        candidatesToTry.push(m);
-      }
-    }
-
+    const candidatesToTry = this.buildCandidateModels(available);
     const errorsLog: string[] = [];
 
     for (const modelCandidate of candidatesToTry) {
       try {
-        const result = await this.callGenerateContent(modelCandidate, key, prompt, resolvedMime, cleanBase64);
+        const result = await this.callGenerateContent(modelCandidate, key, prompt, preparedImages);
         if (result) {
           this.cachedModel = modelCandidate;
+          this.activeModel.set(modelCandidate);
           localStorage.setItem(this.STORAGE_MODEL_KEY, modelCandidate);
           this.isAnalyzing.set(false);
           this.errorMessage.set(null);
-          return this.mapParsedToAnalysis(result, imageForMindPalace);
+          return this.mapParsedToResult(result, displayImages.length ? displayImages : images.map(i => i.base64));
         }
       } catch (err: any) {
         const errMessage = err?.message || String(err);
         errorsLog.push(`${modelCandidate}: ${errMessage}`);
-        console.warn(`Modèle ${modelCandidate} non disponible (${errMessage}), tentative avec le suivant...`);
+        console.warn(`Modèle ${modelCandidate} indisponible (${errMessage}), essai du suivant...`);
       }
     }
 
     this.isAnalyzing.set(false);
     const lastError = errorsLog[errorsLog.length - 1] || 'Erreur inconnue';
-    
+
     let friendlyError = 'Impossible de contacter l\'IA Google.';
     if (lastError.includes('API_KEY_INVALID') || lastError.includes('API key not valid')) {
       friendlyError = 'Clé Google AI Studio invalide ou révoquée. Veuillez vérifier votre clé API.';
@@ -350,36 +243,82 @@ RÈGLES ABSOLUES :
     throw new Error(friendlyError);
   }
 
-  /**
-   * Appel direct à generateContent
-   */
+  private normalizeBase64(base64Image: string, fallbackMime: string): { mimeType: string; data: string } {
+    let resolvedMime = fallbackMime || 'image/jpeg';
+    let cleanBase64 = base64Image;
+
+    if (base64Image.includes(',')) {
+      const parts = base64Image.split(',');
+      const header = parts[0];
+      cleanBase64 = parts[1];
+      const match = header.match(/^data:([^;]+);base64/);
+      if (match) {
+        resolvedMime = match[1];
+      }
+    }
+
+    return {
+      mimeType: resolvedMime,
+      data: cleanBase64.replace(/\s/g, '')
+    };
+  }
+
+  private buildCandidateModels(available: string[]): string[] {
+    const preferredOrder = [
+      'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-2.0-pro',
+      'gemini-1.5-pro',
+      'gemini-1.5-flash',
+      'gemini-flash'
+    ];
+
+    const candidates: string[] = [];
+    if (this.cachedModel && available.includes(this.cachedModel) && this.cachedModel.includes('2.')) {
+      candidates.push(this.cachedModel);
+    }
+
+    for (const preferred of preferredOrder) {
+      const match = available.find(m => m.includes(preferred.replace('gemini-', '')));
+      if (match && !candidates.includes(match)) {
+        candidates.push(match);
+      }
+    }
+
+    for (const m of available) {
+      if (!candidates.includes(m)) {
+        candidates.push(m);
+      }
+    }
+
+    return candidates;
+  }
+
   private async callGenerateContent(
     modelPath: string,
     key: string,
     prompt: string,
-    mimeType: string,
-    cleanBase64: string
+    images: Array<{ mimeType: string; data: string }>
   ): Promise<any> {
     const formattedModel = modelPath.startsWith('models/') ? modelPath : `models/${modelPath}`;
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/${formattedModel}:generateContent?key=${key}`;
 
-    const body = {
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: cleanBase64
-              }
-            }
-          ]
+    const parts: any[] = [{ text: prompt }];
+    for (const img of images) {
+      parts.push({
+        inlineData: {
+          mimeType: img.mimeType,
+          data: img.data
         }
-      ],
+      });
+    }
+
+    const body = {
+      contents: [{ parts }],
       generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 3500,
+        temperature: 0.05,
+        maxOutputTokens: 8192,
         responseMimeType: 'application/json'
       }
     };
@@ -411,66 +350,34 @@ RÈGLES ABSOLUES :
     rawText = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
     try {
       return JSON.parse(rawText);
-    } catch (parseErr) {
+    } catch {
       console.error('Erreur parsing JSON Gemini brut:', rawText);
-      throw new Error('La réponse de Sherlock n\'est pas au format attendu.');
+      throw new Error('La réponse de l\'IA n\'est pas au format JSON attendu.');
     }
   }
 
-  private mapParsedToAnalysis(parsed: any, base64Image: string): SherlockAnalysis {
-    const defaultIdentification: ImageIdentification = {
-      mainSubject: parsed.subject || 'Élément Sous Examen',
-      category: 'other',
-      categoryLabel: 'IDENTIFICATION',
-      eventName: '',
-      dateOrPeriod: '',
-      location: '',
-      facts: [],
-      unseenDetails: [],
-      summary: 'Analyse complétée par Sherlock Holmes.',
-      deductionNote: parsed.verdict || ''
-    };
-
-    const identification: ImageIdentification = parsed.identification
-      ? {
-          mainSubject: parsed.identification.mainSubject || parsed.subject || defaultIdentification.mainSubject,
-          category: parsed.identification.category || 'other',
-          categoryLabel: (parsed.identification.categoryLabel || 'IDENTIFICATION').toUpperCase(),
-          eventName: parsed.identification.eventName || '',
-          dateOrPeriod: parsed.identification.dateOrPeriod || '',
-          location: parsed.identification.location || '',
-          facts: (parsed.identification.facts || []).map((f: any) => ({
-            label: f.label || '',
-            value: f.value || '',
-            icon: f.icon || '📌'
-          })),
-          unseenDetails: Array.isArray(parsed.identification.unseenDetails)
-            ? parsed.identification.unseenDetails
-            : [],
-          summary: parsed.identification.summary || '',
-          deductionNote: parsed.identification.deductionNote || parsed.verdict || ''
-        }
-      : defaultIdentification;
+  private mapParsedToResult(parsed: any, photos: string[]): TextExtractionResult {
+    const contentType = parsed.contentType === 'code' || parsed.contentType === 'mixed' ? parsed.contentType : 'text';
+    const language = (parsed.language || 'plaintext').toLowerCase();
+    const defaultExt = language === 'typescript' ? 'ts'
+      : language === 'javascript' ? 'js'
+      : language === 'python' ? 'py'
+      : language === 'html' ? 'html'
+      : language === 'css' ? 'css'
+      : language === 'json' ? 'json'
+      : language === 'markdown' ? 'md'
+      : 'txt';
 
     return {
-      subject: parsed.subject || identification.mainSubject || 'Élément Sous Examen',
-      identification,
-      targetPersonProfile: parsed.targetPersonProfile || 'Sujet sous observation approfondie',
-      verdict: parsed.verdict || identification.deductionNote || 'Identification certifiée par le Palais Mental.',
-      floatingKeywords: (parsed.floatingKeywords || ['IDENTIFICATION', 'OBSERVATION', 'DÉDUCTION']).map((k: string) => k.toUpperCase()),
-      clues: (parsed.clues || []).map((c: any, index: number) => ({
-        id: c.id || `clue-${index + 1}`,
-        label: c.label || 'Détail observable',
-        deduction: c.deduction || 'Déduction logique.',
-        x: Math.max(10, Math.min(90, Number(c.x) || 50)),
-        y: Math.max(12, Math.min(88, Number(c.y) || 50)),
-        category: c.category || 'identification',
-        categoryLabel: (c.categoryLabel || 'INDICE').toUpperCase(),
-        confidence: Number(c.confidence) || 96
-      })),
-      speechMonologue: parsed.speechMonologue || 'Ne dis rien. Tout est déjà visible.',
-      analyzedAt: new Date(),
-      imageSrc: base64Image
+      title: parsed.title || 'Contenu extrait',
+      contentType,
+      language,
+      suggestedFilename: parsed.suggestedFilename || `extraction.${defaultExt}`,
+      extractedText: parsed.extractedText ?? '',
+      summary: parsed.summary || `Texte extrait depuis ${photos.length} photo(s).`,
+      photoCount: photos.length,
+      photos,
+      extractedAt: new Date()
     };
   }
 }

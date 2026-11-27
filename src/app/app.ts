@@ -3,16 +3,15 @@ import { CommonModule } from '@angular/common';
 import { GeminiService } from './services/gemini.service';
 import { CameraService } from './services/camera.service';
 import { SpeechService } from './services/speech.service';
-import { SherlockAnalysis, MockCase } from './models/sherlock.model';
-import { MOCK_CASES } from './data/mock-cases.data';
-import { MindPalaceComponent } from './components/mind-palace/mind-palace.component';
+import { CapturedPhoto, TextExtractionResult } from './models/sherlock.model';
+import { ExtractionResultComponent } from './components/extraction-result/extraction-result.component';
 import { ApiModalComponent } from './components/api-modal/api-modal.component';
 import { CameraModalComponent } from './components/camera-modal/camera-modal.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, MindPalaceComponent, ApiModalComponent, CameraModalComponent],
+  imports: [CommonModule, ExtractionResultComponent, ApiModalComponent, CameraModalComponent],
   templateUrl: './app.html'
 })
 export class App {
@@ -22,68 +21,83 @@ export class App {
 
   public readonly fileInputRef = viewChild<ElementRef<HTMLInputElement>>('fileInput');
 
-  public readonly currentAnalysis: WritableSignal<SherlockAnalysis | null> = signal(null);
+  public readonly capturedPhotos: WritableSignal<CapturedPhoto[]> = signal([]);
+  public readonly extractionResult: WritableSignal<TextExtractionResult | null> = signal(null);
   public readonly showApiModal: WritableSignal<boolean> = signal(false);
   public readonly showCameraModal: WritableSignal<boolean> = signal(false);
-  public readonly pendingImage: WritableSignal<{ data: string; mime: string } | null> = signal(null);
-  public readonly mockCases: MockCase[] = MOCK_CASES;
 
-  /**
-   * Ouvre le viseur caméra en direct (Webcam PC / Caméra Smartphone)
-   */
+  private pendingExtraction = false;
+
   public openLiveCamera(): void {
     this.speechService.playAudioEffect('scan');
     this.showCameraModal.set(true);
   }
 
-  /**
-   * Traitement d'une photo capturée depuis le viseur en direct
-   */
-  public async onCameraPhotoCaptured(dataUrl: string): Promise<void> {
+  public onCameraPhotoCaptured(dataUrl: string): void {
     this.showCameraModal.set(false);
-    await this.processImage(dataUrl, 'image/jpeg');
+    this.addPhoto(dataUrl, 'image/jpeg', `Photo caméra ${this.capturedPhotos().length + 1}`);
   }
 
-  /**
-   * Capture directe via appareil photo du smartphone (Capacitor)
-   */
-  public async captureWithCamera(): Promise<void> {
-    this.openLiveCamera();
-  }
-
-  /**
-   * Sélection depuis la galerie
-   */
   public async selectFromGallery(): Promise<void> {
-    const dataUrl = await this.cameraService.pickFromGallery();
-    if (dataUrl) {
-      await this.processImage(dataUrl);
-    } else {
-      this.fileInputRef()?.nativeElement.click();
-    }
+    this.fileInputRef()?.nativeElement.click();
   }
 
-  /**
-   * Fallback input fichier pour test rapide sur navigateur desktop
-   */
-  public async onFileSelected(event: Event): Promise<void> {
+  public async onFilesSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
-    if (!input.files || !input.files[0]) return;
+    if (!input.files || input.files.length === 0) return;
 
-    const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      await this.processImage(base64, file.type);
-    };
-    reader.readAsDataURL(file);
+    const files = Array.from(input.files);
+    for (const file of files) {
+      const dataUrl = await this.readFileAsDataUrl(file);
+      if (dataUrl) {
+        this.addPhoto(dataUrl, file.type || 'image/jpeg', file.name);
+      }
+    }
     input.value = '';
   }
 
+  private readFileAsDataUrl(file: File): Promise<string | null> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  private addPhoto(dataUrl: string, mimeType: string, name: string): void {
+    const photo: CapturedPhoto = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      dataUrl,
+      mimeType,
+      name
+    };
+    this.capturedPhotos.update(list => [...list, photo]);
+    this.geminiService.errorMessage.set(null);
+  }
+
+  public removePhoto(id: string): void {
+    this.capturedPhotos.update(list => list.filter(p => p.id !== id));
+  }
+
+  public movePhoto(index: number, direction: -1 | 1): void {
+    const list = [...this.capturedPhotos()];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+    const [item] = list.splice(index, 1);
+    list.splice(targetIndex, 0, item);
+    this.capturedPhotos.set(list);
+  }
+
+  public clearPhotos(): void {
+    this.capturedPhotos.set([]);
+    this.geminiService.errorMessage.set(null);
+  }
+
   /**
-   * Compresse et redimensionne une image pour accélérer l'analyse Gemini (de 10 Mo -> 75 Ko)
+   * Optimise la taille des photos tout en conservant une haute netteté pour la lecture du code (1600px)
    */
-  private async compressForAI(base64: string, maxDim: number = 1024, quality: number = 0.8): Promise<string> {
+  private async optimizeForOCR(base64: string, maxDim: number = 1600, quality: number = 0.88): Promise<string> {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -117,51 +131,43 @@ export class App {
     });
   }
 
-  /**
-   * Déclenche la vraie analyse par Sherlock Holmes (Gemini Flash Vision)
-   */
-  public async processImage(base64Image: string, mimeType: string = 'image/jpeg'): Promise<void> {
+  public async extractAllPhotos(): Promise<void> {
+    const photos = this.capturedPhotos();
+    if (!photos.length) return;
+
     if (!this.geminiService.apiKey()) {
-      this.pendingImage.set({ data: base64Image, mime: mimeType });
+      this.pendingExtraction = true;
       this.showApiModal.set(true);
       return;
     }
 
     try {
       this.speechService.playAudioEffect('scan');
-      // Compression instantanée pour accélérer l'envoi réseau de 10x à 50x
-      const lightweightImage = await this.compressForAI(base64Image);
-      // On envoie l'image allégée à l'IA, tout en gardant l'image haute définition pour l'affichage visuel
-      const result = await this.geminiService.analyzeImage(lightweightImage, 'image/jpeg', base64Image);
-      this.currentAnalysis.set(result);
+      const optimized = await Promise.all(
+        photos.map(async (photo) => ({
+          base64: await this.optimizeForOCR(photo.dataUrl),
+          mimeType: 'image/jpeg'
+        }))
+      );
+
+      const displayUrls = photos.map(p => p.dataUrl);
+      const result = await this.geminiService.extractTextFromImages(optimized, displayUrls);
+      this.extractionResult.set(result);
     } catch (err) {
-      console.error('Erreur lors de l\'analyse de l\'image:', err);
+      console.error('Erreur lors de l\'extraction du texte:', err);
     }
   }
 
   public onApiKeySaved(): void {
-    const pending = this.pendingImage();
-    if (pending) {
-      this.pendingImage.set(null);
-      this.processImage(pending.data, pending.mime);
+    if (this.pendingExtraction && this.capturedPhotos().length > 0) {
+      this.pendingExtraction = false;
+      this.extractAllPhotos();
     }
   }
 
-  /**
-   * Charge un cas pré-établi de démonstration en 1 clic
-   */
-  public loadMockCase(caseItem: MockCase): void {
-    this.speechService.playAudioEffect('clue');
-    this.cameraService.triggerHapticFeedback();
-    this.currentAnalysis.set({
-      ...caseItem.analysis,
-      analyzedAt: new Date()
-    });
-  }
-
-  public resetInvestigation(): void {
-    this.speechService.stopSpeaking();
-    this.currentAnalysis.set(null);
+  public resetScan(): void {
+    this.extractionResult.set(null);
+    this.capturedPhotos.set([]);
     this.geminiService.errorMessage.set(null);
   }
 }
